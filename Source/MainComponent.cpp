@@ -84,11 +84,12 @@ MainComponent::MainComponent() : playButton("playButton", Colour(20, 31, 51), Co
 		}
 	}
 
-	
-	midiOutput->getDevices();
-
-	for (int i = 0; i < midiOutput->getDevices().size(); ++i) {
-		deviceList.addItem(midiOutput->getDevices()[i], i+1);
+	// Popola la ComboBox dei dispositivi MIDI usando l'API moderna di JUCE:
+	{
+		auto devices = MidiOutput::getAvailableDevices(); // Array<MidiDeviceInfo>
+		for (int i = 0; i < devices.size(); ++i) {
+			deviceList.addItem(devices[i].name, i + 1);
+		}
 	}
 
 	deviceList.setLookAndFeel(&customLookAndFeel2);
@@ -167,11 +168,23 @@ void MainComponent::resized()
 
 void MainComponent::comboBoxChanged(ComboBox * comboBoxThatHasChanged)
 {
-	if (comboBoxThatHasChanged = &deviceList) {
+	// Usare confronto (==), non assegnazione (=)
+	if (comboBoxThatHasChanged == &deviceList) {
 
-		if (midiOutput == nullptr && MidiOutput::getDevices().size() > 0)
+		auto devices = MidiOutput::getAvailableDevices();
+
+		// Verifica che non ci siano già aperti e che esistano dispositivi
+		if (midiOutput == nullptr && devices.size() > 0 && deviceList.getSelectedId() > 0)
 		{
-			midiOutput.reset(MidiOutput::openDevice(deviceList.getSelectedId()));
+			// deviceList usa ID a partire da 1 => sottrarre 1 per ottenere l'indice nell'array
+			int selectedIndex = deviceList.getSelectedId() - 1;
+			if (selectedIndex >= 0 && selectedIndex < devices.size()) {
+				auto& info = devices[selectedIndex];
+
+				// Correzione: usare l'assegnazione diretta. Questo gestisce il caso in cui
+				// MidiOutput::openDevice ritorni uno std::unique_ptr<MidiOutput>.
+				midiOutput = MidiOutput::openDevice(info.identifier);
+			}
 		}
 	}
 
@@ -335,4 +348,5 @@ void MainComponent::saveMidiPattern()
 
 	}
 }
+
 
